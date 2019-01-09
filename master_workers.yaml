@@ -1,0 +1,344 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  KeyPair:
+    Description: Keypair
+    Type: AWS::EC2::KeyPair::KeyName
+  LinuxAMI:
+    Description: Amazon Linux AMI ID
+    Type: AWS::EC2::Image::Id
+    Default: ami-40142d25
+  VpcBlock:
+    Type: String
+    Default: 192.168.0.0/16
+    Description: CIDR range for the VPC. This should be a valid private (RFC 1918) CIDR range.
+  PublicSubnetBlock:
+    Type: String
+    Default: 192.168.1.0/24
+    Description: CIDR range for Public Subnet
+  PrivateSubnetBlock:
+    Type: String
+    Default: 192.168.2.0/24
+    Description: CIDR range for Private Subnet
+  ArtifactBucket:
+    Type: String
+    Description: S3 Bucket with Artifacts
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock:  !Ref VpcBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+      - Key: Name
+        Value: !Sub '${AWS::StackName}-VPC'
+  InternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+  VPCGatewayAttachment:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: Public Subnets
+      - Key: Network
+        Value: Public
+  PublicRoute:
+    DependsOn: VPCGatewayAttachment
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: Private Subnets
+      - Key: Network
+        Value: Private
+  EIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  NAT:
+    DependsOn: VPCGatewayAttachment
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+          - EIP
+          - AllocationId
+      SubnetId: !Ref PublicSubnet
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NAT
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+        - '0'
+        - Fn::GetAZs: !Ref AWS::Region
+      CidrBlock: !Ref PublicSubnetBlock
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-PublicSubnet"
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+        - '0'
+        - Fn::GetAZs: !Ref AWS::Region
+      CidrBlock: !Ref PrivateSubnetBlock
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-PrivateSubnet"
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet
+      RouteTableId: !Ref PrivateRouteTable
+  MasterSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Master Node Security Group - Allow SSH access from all Public Internet addresses
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: 0.0.0.0/0
+  WorkerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Worker Node Security Group - Allow SSH access from the Master Node
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        SourceSecurityGroupId: !Ref 'MasterSecurityGroup'
+  SsmManagedInstance:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM
+  SsmManagedInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+      - !Ref 'SsmManagedInstance'
+  MasterServerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+        - PolicyName: 'AllowSecretsManagerRead'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action: 'secretsmanager:GetSecretValue'
+                Resource: 'arn:aws:secretsmanager:*:*:secret:/dev/ssh*'
+  MasterServerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+      - !Ref 'MasterServerRole'
+  MasterServer:
+    Type: AWS::EC2::Instance
+    Metadata:
+      Comment1: Download scripts to demonstrate SCP using Private Keys from Secrets Manager
+      AWS::CloudFormation::Init:
+        configSets:
+          InstallAndRun:
+          - Download
+          - Install
+        Download:
+          files:
+            /home/ec2-user/requirements.txt:
+              source: !Sub "https://${ArtifactBucket}.s3.amazonaws.com/rotatessh/scripts/requirements.txt"
+              mode: "000644"
+              owner: "ec2-user"
+              group: "ec2-user"
+            /home/ec2-user/copy_file.py:
+              source: !Sub "https://${ArtifactBucket}.s3.amazonaws.com/rotatessh/scripts/copy_file.py"
+              mode: "000644"
+              owner: "ec2-user"
+              group: "ec2-user"
+            /home/ec2-user/testfile.txt:
+              content: !Sub |
+                Test File
+              mode: "000644"
+              owner: "ec2-user"
+              group: "ec2-user"
+        Install:
+          commands:
+            01_pipinstall_awscli:
+              cwd: '/home/ec2-user/'
+              command: 'pip install awscli --upgrade'
+            02_pipinstall_reqs:
+              cwd: '/home/ec2-user/'
+              command: 'pip install -r requirements.txt -t "$PWD" --upgrade'
+    Properties:
+      ImageId: !Ref 'LinuxAMI'
+      KeyName: !Ref 'KeyPair'
+      InstanceType: t2.micro
+      IamInstanceProfile: !Ref MasterServerInstanceProfile
+      Tags:
+      - Key: 'Name'
+        Value: 'MasterServer'
+      NetworkInterfaces:
+      - AssociatePublicIpAddress: 'true'
+        DeviceIndex: '0'
+        GroupSet:
+        - !Ref 'MasterSecurityGroup'
+        SubnetId: !Ref 'PublicSubnet'
+      UserData: !Base64
+        Fn::Join:
+        - ''
+        - - '#!/bin/bash -xe
+
+            '
+          - 'yum update -y aws-cfn-bootstrap
+
+            '
+          - '# Install the files and packages from the metadata
+
+            '
+          - '/opt/aws/bin/cfn-init -v '
+          - '         --stack '
+          - !Ref 'AWS::StackName'
+          - '         --resource MasterServer '
+          - '         --configsets InstallAndRun '
+          - '         --region '
+          - !Ref 'AWS::Region'
+          - '
+
+            '
+          - '# Signal the status from cfn-init
+
+            '
+          - '/opt/aws/bin/cfn-signal -e $? '
+          - '         --stack '
+          - !Ref 'AWS::StackName'
+          - '         --resource MasterServer '
+          - '         --region '
+          - !Ref 'AWS::Region'
+          - '
+            '
+  WorkerServer1:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref 'LinuxAMI'
+      KeyName: !Ref 'KeyPair'
+      InstanceType: t2.micro
+      IamInstanceProfile: !Ref SsmManagedInstanceProfile
+      Tags:
+      - Key: 'Name'
+        Value: 'WorkerServer1'
+      - Key: 'RotateSSHKeys'
+        Value: 'True'
+      NetworkInterfaces:
+      - DeviceIndex: '0'
+        GroupSet:
+        - !Ref 'WorkerSecurityGroup'
+        SubnetId: !Ref 'PrivateSubnet'
+  WorkerServer2:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref 'LinuxAMI'
+      KeyName: !Ref 'KeyPair'
+      InstanceType: t2.micro
+      IamInstanceProfile: !Ref SsmManagedInstanceProfile
+      Tags:
+      - Key: 'Name'
+        Value: 'WorkerServer2'
+      - Key: 'RotateSSHKeys'
+        Value: 'True'
+      NetworkInterfaces:
+      - AssociatePublicIpAddress: 'true'
+        DeviceIndex: '0'
+        GroupSet:
+        - !Ref 'WorkerSecurityGroup'
+        SubnetId: !Ref 'PrivateSubnet'
+  WorkerServer3:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref 'LinuxAMI'
+      KeyName: !Ref 'KeyPair'
+      InstanceType: t2.micro
+      IamInstanceProfile: !Ref SsmManagedInstanceProfile
+      Tags:
+      - Key: 'Name'
+        Value: 'WorkerServer3'
+      - Key: 'RotateSSHKeys'
+        Value: 'True'
+      NetworkInterfaces:
+      - AssociatePublicIpAddress: 'true'
+        DeviceIndex: '0'
+        GroupSet:
+        - !Ref 'WorkerSecurityGroup'
+        SubnetId: !Ref 'PrivateSubnet'
+Outputs:
+  MasterServerPublicIP:
+    Description: Master Server Public IP
+    Value: !GetAtt 'MasterServer.PublicIp'
+  Worker1PrivateIP:
+    Description: Worker Server 1 Private IP
+    Value: !GetAtt 'WorkerServer1.PrivateIp'
+  Worker2PrivateIP:
+    Description: Worker Server 2 Private IP
+    Value: !GetAtt 'WorkerServer2.PrivateIp'
+  Worker3PrivateIP:
+    Description: Worker Server 3 Private IP
+    Value: !GetAtt 'WorkerServer3.PrivateIp'
+  PrivateSubnet:
+    Description: Private Subnet ID
+    Value: !Ref PrivateSubnet
+    Export:
+      Name: !Sub '${AWS::StackName}-PrivateSubnet'
+  MasterSecurityGroup:
+    Description: Master Security Group ID
+    Value: !Ref MasterSecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-MasterSecurityGroup'
