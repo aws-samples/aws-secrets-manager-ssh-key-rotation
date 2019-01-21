@@ -22,6 +22,7 @@ Parameters:
   ArtifactBucket:
     Type: String
     Description: S3 Bucket with Artifacts
+    Default: "maitreyr-secretsmanager"
   YourIPRange:
     Type: String
     Description: CIDR range of the network from where you will SSH to the Master server
