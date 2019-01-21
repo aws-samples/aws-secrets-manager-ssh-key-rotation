@@ -22,6 +22,14 @@ Parameters:
   ArtifactBucket:
     Type: String
     Description: S3 Bucket with Artifacts
+  YourIPRange:
+    Type: String
+    Description: CIDR range of the network from where you will SSH to the Master server
+    MinLength: 9
+    MaxLength: 18
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x
+    Default: "0.0.0.0/0"
 Resources:
   VPC:
     Type: AWS::EC2::VPC
@@ -83,7 +91,6 @@ Resources:
       RouteTableId: !Ref PrivateRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NAT
-
   PublicSubnet:
     Type: AWS::EC2::Subnet
     Properties:
@@ -127,7 +134,7 @@ Resources:
       - IpProtocol: tcp
         FromPort: '22'
         ToPort: '22'
-        CidrIp: 0.0.0.0/0
+        CidrIp: !Ref YourIPRange
   WorkerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
