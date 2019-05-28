@@ -46,9 +46,14 @@ def copy_file(private_key, user, ip, local_path, remote_path):
 
     key = paramiko.RSAKey.from_private_key(private_key_str)
 
+    private_key_str.close()
+    del private_key_str
+
     trans = paramiko.Transport(ip, 22)
     trans.start_client()
     trans.auth_publickey(user, key)
+
+    del key
 
     print('Opening transport')
     conn = trans.open_session()
@@ -67,3 +72,7 @@ def copy_file(private_key, user, ip, local_path, remote_path):
 
 private_key = get_private_key()
 copy_file(private_key, sys.argv[1], sys.argv[2], 'testfile.txt', 'testfile.txt')
+
+# Overwrite and delete the private_key variable, just for safety
+private_key = '##############################################'
+del private_key
