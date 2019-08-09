@@ -6,7 +6,7 @@ Parameters:
   LinuxAMI:
     Description: Amazon Linux AMI ID
     Type: AWS::EC2::Image::Id
-    Default: ami-40142d25
+    Default: ami-035b3c7efe6d061d5
   VpcBlock:
     Type: String
     Default: 192.168.0.0/16

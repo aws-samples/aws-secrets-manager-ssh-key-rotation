@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 S3BUCKET=BUCKET_NAME
-REGION=us-east-2
+REGION=us-east-1
 PREFIX=rotatessh
 
 aws s3 cp master_workers.yaml s3://$S3BUCKET/$PREFIX/cfn/ --acl public-read

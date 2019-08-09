@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 S3Bucket=BUCKET_NAME
-REGION=us-east-2
+REGION=us-east-1
 
 FILE="$(uuidgen).yaml"
 PREFIX=rotatessh
