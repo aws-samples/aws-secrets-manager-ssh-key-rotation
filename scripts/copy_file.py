@@ -10,15 +10,7 @@ from botocore.exceptions import ClientError
 
 def get_private_key():
     secret_name = "/dev/ssh"
-    endpoint_url = "https://secretsmanager.us-east-2.amazonaws.com"
-    region_name = "us-east-2"
-
-    session = boto3.session.Session()
-    client = session.client(
-        service_name='secretsmanager',
-        region_name=region_name,
-        endpoint_url=endpoint_url
-    )
+    client = boto3.client('secretsmanager', region_name='us-east-1')
 
     try:
         get_secret_value_response = client.get_secret_value(
