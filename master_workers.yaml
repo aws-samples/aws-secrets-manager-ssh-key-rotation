@@ -19,9 +19,6 @@ Parameters:
     Type: String
     Default: 192.168.2.0/24
     Description: CIDR range for Private Subnet
-  ArtifactBucket:
-    Type: String
-    Description: S3 Bucket with Artifacts
   YourIPRange:
     Type: String
     Description: CIDR range of the network from where you will SSH to the Master server
@@ -144,7 +141,7 @@ Resources:
         FromPort: '22'
         ToPort: '22'
         SourceSecurityGroupId: !Ref 'MasterSecurityGroup'
-  SsmManagedInstance:
+  WorkerServerRole:
     Type: AWS::IAM::Role
     Properties:
       Path: /
@@ -158,12 +155,12 @@ Resources:
           - sts:AssumeRole
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM
-  SsmManagedInstanceProfile:
+  WorkerServerInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
       Path: /
       Roles:
-      - !Ref 'SsmManagedInstance'
+      - !Ref 'WorkerServerRole'
   MasterServerRole:
     Type: AWS::IAM::Role
     Properties:
@@ -183,7 +180,7 @@ Resources:
             Statement:
               - Effect: 'Allow'
                 Action: 'secretsmanager:GetSecretValue'
-                Resource: 'arn:aws:secretsmanager:*:*:secret:/dev/ssh*'
+                Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/dev/ssh*'
   MasterServerInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
@@ -202,12 +199,12 @@ Resources:
         Download:
           files:
             /home/ec2-user/requirements.txt:
-              source: !Sub "https://${ArtifactBucket}.s3.amazonaws.com/rotatessh/scripts/requirements.txt"
+              source: "https://awsiammedia.s3.amazonaws.com/public/sample/SecretsManagerStoreRotateSSHKeyPairs/requirements.txt"
               mode: "000644"
               owner: "ec2-user"
               group: "ec2-user"
             /home/ec2-user/copy_file.py:
-              source: !Sub "https://${ArtifactBucket}.s3.amazonaws.com/rotatessh/scripts/copy_file.py"
+              source: "https://awsiammedia.s3.amazonaws.com/public/sample/SecretsManagerStoreRotateSSHKeyPairs/copy_file.py"
               mode: "000644"
               owner: "ec2-user"
               group: "ec2-user"
@@ -278,7 +275,7 @@ Resources:
       ImageId: !Ref 'LinuxAMI'
       KeyName: !Ref 'KeyPair'
       InstanceType: t2.micro
-      IamInstanceProfile: !Ref SsmManagedInstanceProfile
+      IamInstanceProfile: !Ref WorkerServerInstanceProfile
       Tags:
       - Key: 'Name'
         Value: 'WorkerServer1'
@@ -295,7 +292,7 @@ Resources:
       ImageId: !Ref 'LinuxAMI'
       KeyName: !Ref 'KeyPair'
       InstanceType: t2.micro
-      IamInstanceProfile: !Ref SsmManagedInstanceProfile
+      IamInstanceProfile: !Ref WorkerServerInstanceProfile
       Tags:
       - Key: 'Name'
         Value: 'WorkerServer2'
@@ -313,7 +310,7 @@ Resources:
       ImageId: !Ref 'LinuxAMI'
       KeyName: !Ref 'KeyPair'
       InstanceType: t2.micro
-      IamInstanceProfile: !Ref SsmManagedInstanceProfile
+      IamInstanceProfile: !Ref WorkerServerInstanceProfile
       Tags:
       - Key: 'Name'
         Value: 'WorkerServer3'
