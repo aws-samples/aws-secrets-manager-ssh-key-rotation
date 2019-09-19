@@ -5,8 +5,8 @@ Parameters:
     Type: AWS::EC2::KeyPair::KeyName
   LinuxAMI:
     Description: Amazon Linux AMI ID
-    Type: AWS::EC2::Image::Id
-    Default: ami-035b3c7efe6d061d5
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn-ami-hvm-x86_64-gp2'
   VpcBlock:
     Type: String
     Default: 192.168.0.0/16
@@ -124,13 +124,30 @@ Resources:
   MasterSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Master Node Security Group - Allow SSH access from all Public Internet addresses
+      GroupDescription: Master Node Security Group - Allow SSH access from your IP range
       VpcId: !Ref VPC
       SecurityGroupIngress:
       - IpProtocol: tcp
         FromPort: '22'
         ToPort: '22'
         CidrIp: !Ref YourIPRange
+        Description: SSH from your IP
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'
+        CidrIp: 0.0.0.0/0
+        Description: HTTP to Internet
+      - IpProtocol: tcp
+        FromPort: '443'
+        ToPort: '443'
+        CidrIp: 0.0.0.0/0
+        Description: HTTPS to Internet
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: 0.0.0.0/0
+        Description: SSH to Anywhere
   WorkerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -141,6 +158,13 @@ Resources:
         FromPort: '22'
         ToPort: '22'
         SourceSecurityGroupId: !Ref 'MasterSecurityGroup'
+        Description: SSH from MasterServer
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: '443'
+        ToPort: '443'
+        CidrIp: 0.0.0.0/0
+        Description: HTTPS to Internet
   WorkerServerRole:
     Type: AWS::IAM::Role
     Properties:
@@ -154,7 +178,7 @@ Resources:
           Action:
           - sts:AssumeRole
       ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM
+      - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
   WorkerServerInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
