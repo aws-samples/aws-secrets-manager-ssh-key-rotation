@@ -12,15 +12,15 @@ This sample code is made available under a modified MIT license. See the LICENSE
 To deploy the rotation Lambda function to an AWS Region other than ``us-east-1``:
 
 1. Clone this repository to your desktop using git.
-```
-git clone https://github.com/aws-samples/aws-secrets-manager-ssh-key-rotation.git
-```
+    ```
+    git clone https://github.com/aws-samples/aws-secrets-manager-ssh-key-rotation.git
+    ```
 1. Create a new S3 bucket or reuse an existing S3 bucket in your chosen AWS region where you want to deploy the Lambda function. This S3 bucket will store the Lambda function ZIP file.
-1. Upload the packaged Lambda function ZIP file [dist/rotate_ssh_python3.9.zip](dist/rotate_ssh_python3.9.zip) to your S3 bucket. Note the S3 URL to the uploaded ZIP file (e.g. ``s3://bucketname/path/to/rotate_ssh_python3.9.zip``)
-1. Edit the *packaged* CloudFormation template [secretsmanager_rotate_ssh_keys_packaged.yaml](secretsmanager_rotate_ssh_keys_packaged.yaml) and change the ``CodeUri`` to point to your S3 URL. I.e. change this line in the file ``secretsmanager_rotate_ssh_keys_packaged.yaml``:
-```
-      CodeUri: s3://awsiammedia/public/sample/SecretsManagerStoreRotateSSHKeyPairs/rotate_ssh.zip
-```
+1. Upload the packaged Lambda function ZIP file [``dist/rotate_ssh_python3.9.zip``](dist/rotate_ssh_python3.9.zip) to your S3 bucket. Note the S3 URL to the uploaded ZIP file (e.g. ``s3://bucketname/path/to/rotate_ssh_python3.9.zip``)
+1. Edit the *packaged* CloudFormation template [``secretsmanager_rotate_ssh_keys_packaged.yaml``](secretsmanager_rotate_ssh_keys_packaged.yaml) and change the ``CodeUri`` to point to your S3 URL. I.e. change this line:
+    ```
+          CodeUri: s3://awsiammedia/public/sample/SecretsManagerStoreRotateSSHKeyPairs/rotate_ssh.zip
+    ```
 1. Now you can [create a new Stack in CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-console-create-stack.html) in your chosen AWS region using the modified *packaged* template.
 
 ## Deploying the Lambda function ZIP file after making code changes
@@ -39,17 +39,17 @@ yum groupinstall development
 ```
 1. Install Python 3.9 by building from the [source](https://www.python.org/downloads/source/). See [this post](https://computingforgeeks.com/how-to-install-python-on-amazon-linux/) for detailed instructions].
 1. Clone this repository to the EC2 instance:
-```
-git clone https://github.com/aws-samples/aws-secrets-manager-ssh-key-rotation.git
-```
+    ```
+    git clone https://github.com/aws-samples/aws-secrets-manager-ssh-key-rotation.git
+    ```
 1. Edit the shell script [``deployer.sh``](deployer.sh) and replace values for these variables to match the S3 bucket you identified above and your chosen AWS region:
-```
-S3Bucket=BUCKET_NAME
-REGION=us-east-1
-```
+    ```
+    S3Bucket=BUCKET_NAME
+    REGION=us-east-1
+    ```
 1. Run the shell script to package the Lambda ZIP file, package the CloudFormation SAM template, and deploy the template to your chosen AWS region:
-```
-sh deployer.sh
-```
+    ```
+    sh deployer.sh
+    ```
 1. The packaged ZIP file and the packaged CloudFormation template are uploaded to your S3 bucket.
 1. Navigate to the CloudFormation console in your chosen AWS region to view the Stack named ``RotateSSH`` and see the resources created, including the rotation Lambda function.
