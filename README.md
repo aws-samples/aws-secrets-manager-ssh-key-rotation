@@ -34,10 +34,10 @@ To deploy the Lambda function ZIP file after making code changes, or to re-packa
 1. Launch an Amazon Linux 2 x86 EC2 instance in your chosen AWS region, ensuring that you can log into the instance using SSH or Systems Manager Session Manager. Ensure the EC2 Instance Profile for this instance has permissions to upload objects to your S3 bucket, invoke CloudFormation APIs, create IAM Roles, and create Lambda functions.
 1. SSH or start a Session Manager session to log into the EC2 instance.
 1. Install the development tools group:
-```
-yum groupinstall development
-```
-1. Install Python 3.9 by building from the [source](https://www.python.org/downloads/source/). See [this post](https://computingforgeeks.com/how-to-install-python-on-amazon-linux/) for detailed instructions].
+    ```
+    yum groupinstall development
+    ```
+1. Install Python 3.9 by building from the [source](https://www.python.org/downloads/source/). See [this post](https://computingforgeeks.com/how-to-install-python-on-amazon-linux/) for detailed instructions.
 1. Clone this repository to the EC2 instance:
     ```
     git clone https://github.com/aws-samples/aws-secrets-manager-ssh-key-rotation.git
