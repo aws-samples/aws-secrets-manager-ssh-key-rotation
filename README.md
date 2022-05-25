@@ -1,6 +1,4 @@
-## AWS Secrets Manager Ssh Key Rotation
-
-### Secrets Manager - Lambda rotation function for SSH Keys.
+## AWS Secrets Manager - Lambda rotation function for SSH keys
 Please see a walk-through of using this function in [How to use AWS Secrets Manager to securely store and rotate SSH key pairs](https://aws.amazon.com/blogs/security/how-to-use-aws-secrets-manager-securely-store-rotate-ssh-key-pairs/).
 
 The above post shows you how to deploy the rotation Lambda function and resources to test the rotation in the ``us-east-1`` AWS region. See below if you want to deploy the function to a different region, or want to re-build the Lambda function ZIP.
